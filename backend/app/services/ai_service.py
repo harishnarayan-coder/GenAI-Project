@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Optional
+import httpx
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -8,23 +9,15 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        self.available = False
-        self.model = None
-        if settings.GEMINI_API_KEY:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=settings.GEMINI_API_KEY)
-                self.model = genai.GenerativeModel("gemini-1.5-flash")
-                self.available = True
-                logger.info("Gemini AI initialized successfully.")
-            except Exception as e:
-                logger.warning(f"Gemini AI initialization failed: {e}")
+        self.available = bool(settings.GEMINI_API_KEY)
+        if self.available:
+            logger.info("Gemini AI API key configured.")
         else:
             logger.warning("GEMINI_API_KEY not set. Running in demo mode.")
 
     async def analyze_meeting(self, meeting_notes: str, context: str = "") -> dict:
         """Analyze meeting notes and return structured JSON output."""
-        if not self.available or not self.model:
+        if not self.available or not settings.GEMINI_API_KEY:
             return self._demo_response()
 
         context_block = ""
@@ -84,8 +77,17 @@ STRICT RULES:
 - Return ONLY valid JSON. No markdown code fences."""
 
         try:
-            response = self.model.generate_content(prompt)
-            text = response.text.strip()
+            # 1. Try direct Google Gemini REST API (lightweight, fast, no grpc dependencies)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}]
+            }
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
             # Strip markdown code blocks if model wrapped output
             if text.startswith("```"):
                 start = text.find("{")
@@ -98,7 +100,21 @@ STRICT RULES:
             return self._demo_response()
         except Exception as e:
             logger.error(f"AI analysis error: {e}")
-            return self._demo_response()
+            # Try SDK fallback if installed
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(prompt)
+                text = response.text.strip()
+                if text.startswith("```"):
+                    start = text.find("{")
+                    end = text.rfind("}") + 1
+                    text = text[start:end]
+                return json.loads(text)
+            except Exception as e2:
+                logger.error(f"AI SDK fallback error: {e2}")
+                return self._demo_response()
 
     def _demo_response(self) -> dict:
         """Return a clearly labeled demo response when AI is not configured."""
