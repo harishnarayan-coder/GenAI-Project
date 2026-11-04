@@ -1,0 +1,8 @@
+from supabase import create_client, Client
+from app.config import settings
+
+supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+def get_supabase() -> Client:
+    """Return the Supabase client instance."""
+    return supabase
