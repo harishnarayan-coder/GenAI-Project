@@ -55,12 +55,8 @@ export default function NewMeetingPage() {
         } as any);
       } else if (file) {
         setProgress(60);
-        // Read file and send as text
-        const text = await file.text();
-        await aiApi.analyze({
-          meeting_id: meetingId,
-          notes: text,
-        } as any);
+        // Upload file to backend for proper PDF/DOCX/TXT text extraction
+        await aiApi.analyzeFile(meetingId, file);
       }
 
       setProgress(100);

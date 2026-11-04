@@ -32,10 +32,11 @@ class RAGService:
         except Exception as e:
             logger.warning(f"Embedder init failed: {e}. Using fallback.")
 
-    def _get_collection(self, user_id: int):
+    def _get_collection(self, user_id):
         if not self.client:
             return None
-        collection_name = f"user_{user_id}_knowledge"
+        safe_id = str(user_id).replace("-", "_")
+        collection_name = f"user_{safe_id}_knowledge"[:63]
         return self.client.get_or_create_collection(
             name=collection_name,
             metadata={"user_id": str(user_id)},
@@ -51,7 +52,7 @@ class RAGService:
 
     def add_document(
         self,
-        user_id: int,
+        user_id,
         chunks: List[str],
         document_id: int,
         filename: str,
@@ -88,7 +89,7 @@ class RAGService:
 
         return chroma_ids
 
-    def search(self, user_id: int, query: str, n_results: int = 5) -> List[Dict]:
+    def search(self, user_id, query: str, n_results: int = 5) -> List[Dict]:
         """Semantic search over user's knowledge base."""
         collection = self._get_collection(user_id)
         if not collection:
@@ -116,7 +117,7 @@ class RAGService:
             logger.error(f"ChromaDB search error: {e}")
             return []
 
-    def delete_document(self, user_id: int, chroma_ids: List[str]):
+    def delete_document(self, user_id, chroma_ids: List[str]):
         """Delete chunks from ChromaDB."""
         collection = self._get_collection(user_id)
         if not collection or not chroma_ids:

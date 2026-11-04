@@ -180,7 +180,7 @@ async def reanalyze_meeting(
     return _build_analysis_response(meeting_id, ai_result, db)
 
 
-def _persist_analysis(db: Session, meeting: models.Meeting, user_id: int, ai_result: dict):
+def _persist_analysis(db: Session, meeting: models.Meeting, user_id: str, ai_result: dict):
     """Store AI analysis results in the database."""
     # Summary
     summary = models.MeetingSummary(

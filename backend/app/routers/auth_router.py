@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app import models, schemas
 from app.auth import get_current_user
 from app.supabase_client import supabase
 
@@ -143,8 +144,8 @@ def refresh_token(body: dict):
         )
 
 
-@router.get("/me")
-def get_me(current_user: dict = Depends(get_current_user)):
+@router.get("/me", response_model=schemas.UserResponse)
+def get_me(current_user: models.User = Depends(get_current_user)):
     """Return the currently authenticated user's profile."""
     return current_user
 

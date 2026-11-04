@@ -11,6 +11,10 @@ api.interceptors.request.use(async (config) => {
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }
+  // Let the browser set the boundary automatically for FormData
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
@@ -54,6 +58,12 @@ export const meetingsApi = {
 export const aiApi = {
   analyze: (data: { meeting_id: number; notes: string }) =>
     api.post('/ai/analyze', data),
+  analyzeFile: (meetingId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('meeting_id', meetingId.toString());
+    formData.append('file', file);
+    return api.post('/ai/analyze-file', formData);
+  },
 };
 
 // Tasks
@@ -67,9 +77,7 @@ export const tasksApi = {
 // Knowledge Base
 export const knowledgeApi = {
   list: () => api.get('/knowledge'),
-  upload: (formData: FormData) => api.post('/knowledge/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  upload: (formData: FormData) => api.post('/knowledge/upload', formData),
   search: (query: string) => api.post('/knowledge/search', { query }),
   delete: (id: number) => api.delete(`/knowledge/${id}`),
 };

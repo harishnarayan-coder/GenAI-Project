@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -7,11 +7,41 @@ from app import models, schemas
 from app.auth import get_current_user
 from app.services.ai_service import AIService
 from app.services.rag_service import RAGService
+from app.services.document_service import DocumentService
 from app.routers.meetings_router import _persist_analysis, _build_analysis_response
 
 router = APIRouter()
 ai_service = AIService()
 rag_service = RAGService()
+
+
+@router.post("/analyze-file", response_model=schemas.MeetingAnalysisResult)
+async def analyze_meeting_file(
+    meeting_id: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Accepts an uploaded file (PDF, DOCX, TXT, MD), extracts the text,
+    and runs full AI analysis on the meeting.
+    """
+    content = await file.read()
+    filename = file.filename or "notes.txt"
+    try:
+        notes_text = DocumentService.extract_text(content, filename)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not extract text from file: {e}",
+        )
+    if not notes_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file contains no readable text",
+        )
+    req = schemas.AnalyzeRequest(meeting_id=meeting_id, notes=notes_text)
+    return await analyze_meeting(req, db, current_user)
 
 
 @router.post("/analyze", response_model=schemas.MeetingAnalysisResult)

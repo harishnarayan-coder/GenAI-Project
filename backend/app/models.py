@@ -35,13 +35,16 @@ class DecisionTypeEnum(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(64), primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(100), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
     meetings = relationship("Meeting", back_populates="user", cascade="all, delete-orphan")
     action_items = relationship("ActionItem", back_populates="user")
@@ -52,14 +55,14 @@ class Meeting(Base):
     __tablename__ = "meetings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(500), nullable=False)
     date = Column(String(100), nullable=True)
     project_name = Column(String(255), nullable=True)
     participants = Column(JSON, default=list)
     raw_content = Column(Text, nullable=True)
     status = Column(
-        SAEnum(MeetingStatusEnum, name="meetingstatus_enum", create_type=True),
+        SAEnum(MeetingStatusEnum, name="meetingstatus_enum", create_type=True, native_enum=False),
         default=MeetingStatusEnum.PENDING
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -93,7 +96,7 @@ class Decision(Base):
     content = Column(Text, nullable=False)
     context = Column(Text, nullable=True)
     decision_type = Column(
-        SAEnum(DecisionTypeEnum, name="decisiontype_enum", create_type=True),
+        SAEnum(DecisionTypeEnum, name="decisiontype_enum", create_type=True, native_enum=False),
         default=DecisionTypeEnum.APPROVED
     )
 
@@ -105,17 +108,17 @@ class ActionItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
     assigned_to = Column(String(255), default="Unassigned")
     deadline = Column(String(100), nullable=True)
     priority = Column(
-        SAEnum(PriorityEnum, name="priority_enum", create_type=True),
+        SAEnum(PriorityEnum, name="priority_enum", create_type=True, native_enum=False),
         default=PriorityEnum.MEDIUM
     )
     status = Column(
-        SAEnum(StatusEnum, name="status_enum", create_type=True),
+        SAEnum(StatusEnum, name="status_enum", create_type=True, native_enum=False),
         default=StatusEnum.PENDING
     )
     source_context = Column(Text, nullable=True)
@@ -132,7 +135,7 @@ class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     filename = Column(String(500), nullable=False)
     file_type = Column(String(50), nullable=True)
     content = Column(Text, nullable=True)
@@ -160,7 +163,7 @@ class TaskHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("action_items.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     old_status = Column(String(50), nullable=True)
     new_status = Column(String(50), nullable=True)
     changed_at = Column(DateTime(timezone=True), server_default=func.now())

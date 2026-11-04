@@ -18,7 +18,7 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     email: str
     username: str
     full_name: Optional[str] = None
@@ -66,7 +66,7 @@ class DecisionResponse(BaseModel):
 class ActionItemResponse(BaseModel):
     id: int
     meeting_id: int
-    user_id: int
+    user_id: str
     title: str
     description: Optional[str] = None
     assigned_to: str = "Unassigned"
@@ -113,7 +113,7 @@ class MeetingSummaryResponse(BaseModel):
 
 class MeetingResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: str
     title: str
     date: Optional[str] = None
     project_name: Optional[str] = None
@@ -134,7 +134,7 @@ class MeetingResponse(BaseModel):
 
 class MeetingListResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: str
     title: str
     date: Optional[str] = None
     project_name: Optional[str] = None
@@ -173,7 +173,7 @@ class ActionItemUpdate(BaseModel):
 
 class KnowledgeDocumentResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: str
     filename: str
     file_type: Optional[str] = None
     chunk_count: int
