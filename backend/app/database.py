@@ -1,3 +1,4 @@
+import os
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,7 +7,11 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+is_serverless = os.getenv("VERCEL") == "1" or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
 db_url = settings.DATABASE_URL
+
+if is_serverless and ("sqlite" in db_url) and not ("/tmp" in db_url):
+    db_url = "sqlite:////tmp/meetmind.db"
 
 # Check if SQLite or PostgreSQL
 if db_url.startswith("sqlite"):
@@ -28,10 +33,10 @@ else:
         engine = test_engine
         logger.info(f"Connected to database at {db_url}")
     except Exception as e:
-        logger.warning(f"Could not connect to PostgreSQL ({e}). Falling back to SQLite.")
-        sqlite_url = "sqlite:///./meetmind.db"
+        fallback_sqlite = "sqlite:////tmp/meetmind.db" if is_serverless else "sqlite:///./meetmind.db"
+        logger.warning(f"Could not connect to PostgreSQL ({e}). Falling back to SQLite ({fallback_sqlite}).")
         engine = create_engine(
-            sqlite_url,
+            fallback_sqlite,
             connect_args={"check_same_thread": False},
         )
 
@@ -47,4 +52,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

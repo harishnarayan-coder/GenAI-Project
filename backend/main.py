@@ -9,15 +9,22 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from app.database import engine, Base
 from app.routers import auth_router, meetings_router, ai_router, tasks_router, knowledge_router, analytics_router
+from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
 
 # Create all database tables
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logging.warning(f"Could not initialize database tables: {e}")
 
-# Ensure required directories exist
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("chroma_db", exist_ok=True)
+# Ensure required directories exist (use /tmp on serverless environments)
+try:
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
+except Exception as e:
+    logging.warning(f"Could not create storage directories: {e}")
 
 app = FastAPI(
     title="MeetMind AI API",
@@ -29,7 +36,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,4 +57,14 @@ def root():
 
 @app.get("/health", tags=["Health"])
 def health():
+    return {"status": "healthy"}
+
+
+@app.get("/api", tags=["Health"])
+def api_root():
+    return {"message": "MeetMind AI API is running", "version": "1.0.0"}
+
+
+@app.get("/api/health", tags=["Health"])
+def api_health():
     return {"status": "healthy"}
