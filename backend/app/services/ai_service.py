@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from typing import Optional
@@ -6,18 +7,30 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+MODELS_PRIORITY = [
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+]
+
 
 class AIService:
     def __init__(self):
-        self.available = bool(settings.GEMINI_API_KEY)
-        if self.available:
-            logger.info("Gemini AI API key configured.")
-        else:
-            logger.warning("GEMINI_API_KEY not set. Running in demo mode.")
+        pass
+
+    @property
+    def api_key(self) -> Optional[str]:
+        return settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
+
+    @property
+    def available(self) -> bool:
+        return bool(self.api_key)
 
     async def analyze_meeting(self, meeting_notes: str, context: str = "") -> dict:
         """Analyze meeting notes and return structured JSON output."""
-        if not self.available or not settings.GEMINI_API_KEY:
+        key = self.api_key
+        if not key:
+            logger.warning("GEMINI_API_KEY not set. Running in demo mode.")
             return self._demo_response()
 
         context_block = ""
@@ -76,45 +89,45 @@ STRICT RULES:
 - decision_type must be one of: "approved", "rejected", "deferred".
 - Return ONLY valid JSON. No markdown code fences."""
 
-        try:
-            # 1. Try direct Google Gemini REST API (lightweight, fast, no grpc dependencies)
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(url, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "response_mime_type": "application/json",
+            },
+        }
 
-            # Strip markdown code blocks if model wrapped output
-            if text.startswith("```"):
-                start = text.find("{")
-                end = text.rfind("}") + 1
-                text = text[start:end]
-            result = json.loads(text)
-            return result
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI JSON response: {e}")
-            return self._demo_response()
-        except Exception as e:
-            logger.error(f"AI analysis error: {e}")
-            # Try SDK fallback if installed
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=settings.GEMINI_API_KEY)
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(prompt)
-                text = response.text.strip()
-                if text.startswith("```"):
-                    start = text.find("{")
-                    end = text.rfind("}") + 1
-                    text = text[start:end]
-                return json.loads(text)
-            except Exception as e2:
-                logger.error(f"AI SDK fallback error: {e2}")
-                return self._demo_response()
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            last_error = None
+            for model_name in MODELS_PRIORITY:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+                try:
+                    logger.info(f"Attempting AI analysis with Gemini model: {model_name}")
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                        if text.startswith("```"):
+                            start = text.find("{")
+                            end = text.rfind("}") + 1
+                            text = text[start:end]
+                        result = json.loads(text)
+                        logger.info(f"AI analysis completed successfully using {model_name}")
+                        return result
+                    else:
+                        logger.warning(
+                            f"Gemini model {model_name} failed with status {resp.status_code}: {resp.text[:150]}"
+                        )
+                        last_error = f"Status {resp.status_code}: {resp.text[:150]}"
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from {model_name}: {e}")
+                    last_error = f"JSON decode error: {e}"
+                except Exception as e:
+                    logger.error(f"Exception calling Gemini model {model_name}: {e}")
+                    last_error = str(e)
+
+        logger.error(f"All Gemini models failed. Last error: {last_error}")
+        return self._demo_response()
 
     def _demo_response(self) -> dict:
         """Return a clearly labeled demo response when AI is not configured."""

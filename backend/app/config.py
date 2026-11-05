@@ -5,6 +5,11 @@ from typing import Optional
 is_serverless = os.getenv("VERCEL") == "1" or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
 
 
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+root_dir = os.path.dirname(backend_dir)
+backend_env = os.path.join(backend_dir, ".env")
+root_env = os.path.join(root_dir, ".env")
+
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:////tmp/meetmind.db" if is_serverless else "sqlite:///./meetmind.db"
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
@@ -19,7 +24,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[root_env, backend_env, ".env"],
         extra="ignore",
     )
 
