@@ -7,9 +7,10 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; username: string; password: string; full_name: string }) => Promise<void>;
+  register: (data: { email: string; username: string; password: string; full_name: string }) => Promise<{ user: any; session: any }>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: data.username,
           full_name: data.full_name,
         },
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },
     });
     if (error) throw error;
@@ -114,6 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(authData.session.access_token);
       await fetchProfile(authData.user!.id, authData.user!.email ?? '');
     }
+    return authData;
+  };
+
+  const resendVerificationEmail = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      },
+    });
+    if (error) throw error;
   };
 
   const logout = async () => {
@@ -128,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, forgotPassword, isAuthenticated: !!token && !!user }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, forgotPassword, resendVerificationEmail, isAuthenticated: !!token && !!user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import AuthConfirmPage from './pages/AuthConfirmPage';
 import DashboardPage from './pages/DashboardPage';
 import NewMeetingPage from './pages/NewMeetingPage';
 import MeetingDetailPage from './pages/MeetingDetailPage';
@@ -49,6 +50,8 @@ export default function App() {
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/auth/confirm" element={<AuthConfirmPage />} />
+            <Route path="/auth/callback" element={<AuthConfirmPage />} />
             <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />

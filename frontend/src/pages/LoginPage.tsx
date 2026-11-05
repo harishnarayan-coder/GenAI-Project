@@ -21,7 +21,14 @@ export default function LoginPage() {
       toast.success('Welcome back!');
       navigate('/app/dashboard');
     } catch (err: any) {
-      toast.error(err?.message || 'Invalid email or password');
+      const msg = err?.message || 'Invalid email or password';
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        toast.error('Email not verified yet. Please check your inbox and click the verification link.', { duration: 5000 });
+      } else if (msg.toLowerCase().includes('rate limit')) {
+        toast.error('Too many requests. Please wait a minute before trying again.');
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
