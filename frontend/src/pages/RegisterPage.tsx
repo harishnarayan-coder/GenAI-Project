@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Brain, Eye, EyeOff, Loader2, Mail, CheckCircle2, ArrowRight, RotateCw, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
@@ -49,20 +50,19 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const result = await register({
+      await register({
         full_name: form.full_name,
         username: form.username,
         email: form.email,
         password: form.password,
       });
 
-      // If user requires email verification (no session immediately returned)
-      if (!result?.session) {
-        setShowVerifyModal(true);
-      } else {
-        toast.success('Account created successfully!');
-        navigate('/app/dashboard');
-      }
+      // User must verify their email before accessing their account.
+      // Sign out any auto-session to enforce email confirmation first.
+      await supabase.auth.signOut();
+
+      // Show the verification popup modal and do NOT redirect to dashboard
+      setShowVerifyModal(true);
     } catch (err: any) {
       const msg = err?.message || 'Registration failed';
       if (msg.toLowerCase().includes('rate limit')) {
