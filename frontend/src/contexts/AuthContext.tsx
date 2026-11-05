@@ -44,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
+          // If the user's email is unconfirmed, do not authenticate
+          if (session.user && !session.user.confirmed_at && !session.user.email_confirmed_at) {
+            setToken(null);
+            setUser(null);
+            return;
+          }
           setToken(session.access_token);
           await fetchProfile(session.user.id, session.user.email ?? '');
         } else {
@@ -112,10 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) throw error;
-    if (authData.session) {
-      setToken(authData.session.access_token);
-      await fetchProfile(authData.user!.id, authData.user!.email ?? '');
-    }
+
+    // Never auto-authenticate on registration - email verification is mandatory
+    await supabase.auth.signOut();
+    setToken(null);
+    setUser(null);
+
     return authData;
   };
 
