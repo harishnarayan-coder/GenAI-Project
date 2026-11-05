@@ -12,6 +12,8 @@ export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
 
   const load = async () => {
     try {
@@ -50,10 +52,11 @@ export default function KnowledgeBasePage() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
+    setHasSearched(true);
+    setLastQuery(searchQuery);
     try {
       const res = await knowledgeApi.search(searchQuery);
       setSearchResults(res.data.results || []);
-      if ((res.data.results || []).length === 0) toast('No results found', { icon: 'ℹ️' });
     } catch { toast.error('Search failed'); }
     setSearching(false);
   };
@@ -145,11 +148,17 @@ export default function KnowledgeBasePage() {
             {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Search
           </button>
         </div>
+        {hasSearched && !searching && searchResults.length === 0 && (
+          <div className="mt-4 p-5 text-center rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-dashed border-gray-200 dark:border-gray-600">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No matching excerpts found for "{lastQuery}"</p>
+            <p className="text-xs text-gray-400 mt-1">Try other keywords related to your uploaded documents.</p>
+          </div>
+        )}
         {searchResults.length > 0 && (
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</p>
-              <button onClick={() => setSearchResults([])} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+              <button onClick={() => { setSearchResults([]); setHasSearched(false); }} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
             </div>
             {searchResults.map((r, i) => (
               <div key={i} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">

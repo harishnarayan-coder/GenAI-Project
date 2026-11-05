@@ -95,6 +95,28 @@ async def analyze_meeting(
         query=request.notes[:500],
         n_results=3,
     )
+    if not rag_results:
+        # Fallback: search document chunks in DB
+        user_docs = db.query(models.KnowledgeDocument).filter(
+            models.KnowledgeDocument.user_id == current_user.id
+        ).all()
+        if user_docs:
+            doc_ids = [d.id for d in user_docs]
+            words = [w.lower() for w in request.notes.split() if len(w) > 3][:10]
+            chunks = db.query(models.DocumentChunk).filter(
+                models.DocumentChunk.document_id.in_(doc_ids)
+            ).all()
+            scored_chunks = []
+            for ch in chunks:
+                if not ch.content:
+                    continue
+                cl = ch.content.lower()
+                m = sum(1 for w in words if w in cl)
+                if m > 0:
+                    scored_chunks.append((m, ch.content))
+            scored_chunks.sort(reverse=True, key=lambda x: x[0])
+            rag_results = [{"content": c} for _, c in scored_chunks[:3]]
+
     context = "\n\n".join([r["content"] for r in rag_results]) if rag_results else ""
 
     # Run AI analysis

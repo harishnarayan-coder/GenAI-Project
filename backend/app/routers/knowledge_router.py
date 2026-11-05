@@ -117,6 +117,46 @@ def search_knowledge(
         query=request.query,
         n_results=request.n_results,
     )
+
+    # Fallback to database chunk search if ChromaDB is empty or unavailable
+    if not results:
+        query_text = request.query.strip().lower()
+        query_words = [w for w in query_text.split() if len(w) > 1]
+        if not query_words:
+            query_words = [query_text]
+
+        user_docs = (
+            db.query(models.KnowledgeDocument)
+            .filter(models.KnowledgeDocument.user_id == current_user.id)
+            .all()
+        )
+        doc_map = {d.id: d.filename for d in user_docs}
+
+        if doc_map:
+            chunks = (
+                db.query(models.DocumentChunk)
+                .filter(models.DocumentChunk.document_id.in_(list(doc_map.keys())))
+                .all()
+            )
+            scored = []
+            for chunk in chunks:
+                if not chunk.content:
+                    continue
+                content_lower = chunk.content.lower()
+                term_matches = sum(1 for term in query_words if term in content_lower)
+                exact_match = 2 if query_text in content_lower else 0
+                score = term_matches + exact_match
+                if score > 0:
+                    dist = max(0.05, round(1.0 - (score * 0.2), 2))
+                    scored.append({
+                        "content": chunk.content,
+                        "filename": doc_map.get(chunk.document_id, "Document"),
+                        "distance": dist,
+                        "_score": score,
+                    })
+            scored.sort(key=lambda x: x["_score"], reverse=True)
+            results = [{k: v for k, v in item.items() if k != "_score"} for item in scored[:request.n_results]]
+
     return {"results": results, "query": request.query, "total": len(results)}
 
 
