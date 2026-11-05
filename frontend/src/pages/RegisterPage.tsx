@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { register, login, resendVerificationEmail } = useAuth();
+  const { register, resendVerificationEmail } = useAuth();
   const [form, setForm] = useState({ full_name: '', username: '', email: '', password: '', confirm: '' });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,18 +57,11 @@ export default function RegisterPage() {
       });
 
       // If user requires email verification (no session immediately returned)
-      if (result?.session) {
+      if (!result?.session) {
+        setShowVerifyModal(true);
+      } else {
         toast.success('Account created successfully!');
         navigate('/app/dashboard');
-      } else {
-        // Attempt immediate login since our database trigger auto-confirms users
-        try {
-          await login(form.email, form.password);
-          toast.success('Account created and verified successfully!');
-          navigate('/app/dashboard');
-        } catch {
-          setShowVerifyModal(true);
-        }
       }
     } catch (err: any) {
       const msg = err?.message || 'Registration failed';

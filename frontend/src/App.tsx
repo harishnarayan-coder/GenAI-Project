@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -15,6 +16,29 @@ import TasksPage from './pages/TasksPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AppLayout from './components/layout/AppLayout';
+
+function AuthRedirectWatcher() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    // Catch email confirmation tokens or errors and route directly to /auth/confirm
+    if (
+      hash &&
+      (hash.includes('access_token') ||
+        hash.includes('type=signup') ||
+        hash.includes('type=invite') ||
+        hash.includes('error_description'))
+    ) {
+      if (location.pathname !== '/auth/confirm' && location.pathname !== '/auth/callback') {
+        navigate(`/auth/confirm${window.location.search}${hash}`, { replace: true });
+      }
+    }
+  }, [location, navigate]);
+
+  return null;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -38,6 +62,7 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <AuthRedirectWatcher />
           <Toaster
             position="top-right"
             toastOptions={{
